@@ -1,0 +1,1585 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Marble Machine - Wintergatan Inspired Sequencer</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Three.js & OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* Custom 16-Column Grid Utility for Tailwind CDN */
+    .grid-cols-16 {
+      display: grid;
+      grid-template-columns: repeat(16, minmax(0, 1fr));
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(202, 138, 4, 0.4);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(202, 138, 4, 0.7);
+    }
+
+    /* Glassmorphism overlays */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.86);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(234, 179, 8, 0.25);
+    }
+
+    .glass-btn {
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid rgba(234, 179, 8, 0.25);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-btn:hover {
+      background: rgba(234, 179, 8, 0.2);
+      border-color: rgba(234, 179, 8, 0.6);
+      transform: translateY(-1px);
+    }
+    .glass-btn:active {
+      transform: translateY(0);
+    }
+
+    /* FL Studio 9 Green Plotted Note Style */
+    .fl-note-active {
+      background-color: #2be075 !important;
+      border-color: #86efac !important;
+      color: #020617 !important;
+      font-weight: 800 !important;
+      box-shadow: 0 0 10px rgba(43, 224, 117, 0.85), inset 0 0 4px #ffffff;
+    }
+
+    /* Playhead Column Highlight */
+    .playhead-active {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.25) !important;
+    }
+
+    .fl-note-active.playhead-active {
+      background-color: #4ade80 !important;
+      box-shadow: 0 0 14px rgba(74, 222, 128, 0.95), inset 0 0 6px #ffffff;
+    }
+
+    /* Piano Key Preview Styling */
+    .piano-key-white {
+      background: linear-gradient(to right, #f8fafc, #e2e8f0);
+      color: #0f172a;
+    }
+    .piano-key-white:hover {
+      background: #fef08a;
+    }
+    .piano-key-black {
+      background: linear-gradient(to right, #1e293b, #0f172a);
+      color: #f8fafc;
+    }
+    .piano-key-black:hover {
+      background: #ca8a04;
+    }
+
+    /* Steampunk accent glow */
+    .brass-glow {
+      text-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+    }
+
+    input[type=range] {
+      accent-color: #eab308;
+    }
+  </style>
+</head>
+<body class="h-full w-full bg-slate-950 text-slate-100 flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-2.5 glass-panel border-b border-amber-500/20">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/20">
+        <i class="ph-bold ph-gear-six text-2xl"></i>
+      </div>
+      <div>
+        <h1 class="font-bold text-lg leading-tight tracking-wide text-amber-400 brass-glow">DIGITAL MARBLE MACHINE</h1>
+        <p class="text-[11px] text-slate-400">Wintergatan Inspired Sequencer &bull; FL Studio Matrix</p>
+      </div>
+    </div>
+
+    <!-- Central Transport & Master Volume Controls -->
+    <div class="flex items-center space-x-4">
+      <button id="play-btn" class="glass-btn px-5 py-2 rounded-full font-semibold text-amber-300 flex items-center space-x-2 shadow-md hover:text-amber-200">
+        <i class="ph-fill ph-play text-lg" id="play-icon"></i>
+        <span id="play-text">PLAY</span>
+      </button>
+
+      <button id="stop-btn" class="glass-btn p-2.5 rounded-full text-slate-300 hover:text-rose-400" title="Stop & Reset">
+        <i class="ph-bold ph-stop text-lg"></i>
+      </button>
+
+      <div class="h-6 w-px bg-slate-700/60 mx-1"></div>
+
+      <!-- Master Volume Slider -->
+      <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700/50">
+        <i class="ph-bold ph-speaker-high text-amber-400 text-sm"></i>
+        <span class="text-[11px] font-semibold text-slate-400 uppercase">Master</span>
+        <input type="range" id="master-vol-slider" min="0" max="100" value="80" class="w-20 cursor-pointer">
+        <span id="master-vol-val" class="font-mono text-xs font-bold text-amber-300 w-8">80%</span>
+      </div>
+
+      <!-- BPM Slider -->
+      <div class="flex items-center space-x-2 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-700/50">
+        <span class="text-[11px] font-semibold text-amber-500 uppercase">BPM</span>
+        <input type="range" id="bpm-slider" min="60" max="180" value="115" class="w-20 cursor-pointer">
+        <span id="bpm-val" class="font-mono text-xs font-bold text-amber-300 w-8">115</span>
+      </div>
+
+      <div class="h-6 w-px bg-slate-700/60 mx-1"></div>
+
+      <!-- Presets & Action Buttons -->
+      <button id="demo-btn" class="glass-btn px-3.5 py-1.5 rounded-lg text-xs font-medium text-amber-300 flex items-center space-x-1.5">
+        <i class="ph-bold ph-music-notes text-sm"></i>
+        <span>Reload Demo</span>
+      </button>
+      <button id="clear-btn" class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-rose-400 flex items-center space-x-1">
+        <i class="ph-bold ph-trash text-sm"></i>
+        <span>Clear Notes</span>
+      </button>
+    </div>
+
+    <!-- Right Utility Buttons -->
+    <div class="flex items-center space-x-2">
+      <button id="toggle-sidebar-btn" class="glass-btn p-2 rounded-lg text-amber-400 hover:bg-amber-500/10" title="Toggle Instruments Sidebar">
+        <i class="ph-bold ph-sliders-horizontal text-xl"></i>
+      </button>
+      <button id="reset-cam-btn" class="glass-btn p-2 rounded-lg text-slate-300 hover:text-amber-300" title="Reset Camera View">
+        <i class="ph-bold ph-arrows-in-line-horizontal text-xl"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Viewport & UI Drawer Area -->
+  <main class="relative flex-1 w-full h-full overflow-hidden">
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+    <!-- Onscreen Camera Help Hint -->
+    <div class="absolute top-16 left-6 pointer-events-none z-10 glass-panel px-3 py-1.5 rounded-lg text-xs text-slate-400 flex items-center space-x-2">
+      <i class="ph-bold ph-hand-grabbing text-amber-400 text-sm"></i>
+      <span>Drag to orbit &bull; Scroll to zoom &bull; Camera auto-centers to open drawers</span>
+    </div>
+
+    <!-- Floating Right Instrument Sidebar Drawer -->
+    <aside id="sidebar" class="absolute top-16 right-6 bottom-24 w-80 z-20 glass-panel rounded-2xl p-4 flex flex-col space-y-4 shadow-2xl border-amber-500/30 transition-all duration-300">
+      <div class="flex items-center justify-between border-b border-slate-700/50 pb-3">
+        <div class="flex items-center space-x-2">
+          <i class="ph-bold ph-wrench text-amber-400 text-lg"></i>
+          <h2 class="font-bold text-sm text-slate-200 uppercase tracking-wider">Machine Modules</h2>
+        </div>
+        <span id="module-count" class="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-mono border border-amber-500/30">0 / 8</span>
+      </div>
+
+      <!-- Add Module Selector -->
+      <div class="space-y-2">
+        <label class="text-xs text-slate-400 font-medium">Attach Instrument Module</label>
+        <div class="flex space-x-2">
+          <select id="add-instrument-select" class="flex-1 bg-slate-900 border border-slate-700 text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-amber-500">
+            <optgroup label="Percussion">
+              <option value="kick">Kick Drum</option>
+              <option value="snare">Snare Drum</option>
+              <option value="hihat">Closed Hi-Hat</option>
+              <option value="crash">Crash Cymbal</option>
+            </optgroup>
+            <optgroup label="Melodic">
+              <option value="vibraphone">Vibraphone (Soft Chime)</option>
+              <option value="bass">Electric Bass Guitar</option>
+            </optgroup>
+          </select>
+          <button id="add-track-btn" class="glass-btn px-4 py-2 rounded-lg text-xs font-semibold text-amber-400 hover:bg-amber-500/20 flex items-center space-x-1">
+            <i class="ph-bold ph-plus"></i>
+            <span>Add</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Active Track List in Sidebar -->
+      <div class="flex-1 overflow-y-auto pr-1 space-y-3" id="active-tracks-list"></div>
+    </aside>
+
+    <!-- Bottom Floating FL Studio Style Horizontal Piano Roll Panel -->
+    <div id="piano-roll-panel" class="absolute bottom-4 left-6 right-6 z-20 glass-panel rounded-2xl p-4 shadow-2xl transition-all duration-300 max-h-[52vh] flex flex-col">
+      <!-- Piano Roll Header -->
+      <div class="flex items-center justify-between mb-3 border-b border-slate-700/50 pb-2 shrink-0">
+        <div class="flex items-center space-x-3">
+          <i class="ph-bold ph-faders text-amber-400 text-lg"></i>
+          <h2 class="font-bold text-sm text-slate-200 uppercase tracking-wider">FL Studio 9 Horizontal Piano Roll</h2>
+          <span class="text-xs text-slate-400 hidden sm:inline">&bull; 16 Steps &bull; Click piano keys on left to preview note</span>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button id="expand-all-btn" class="glass-btn px-2.5 py-1 rounded text-[11px] font-semibold text-amber-300 hover:bg-amber-500/20">Expand All</button>
+          <button id="collapse-all-btn" class="glass-btn px-2.5 py-1 rounded text-[11px] font-semibold text-slate-300 hover:bg-slate-700">Collapse All</button>
+          <button id="toggle-roll-btn" class="text-slate-400 hover:text-amber-400 text-lg px-2" title="Minimize Panel">
+            <i class="ph-bold ph-caret-down" id="roll-caret"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Scrollable Horizontal Grid Matrix -->
+      <div class="flex-1 overflow-x-auto overflow-y-auto pr-1">
+        <!-- Step Column Headers (1 to 16) -->
+        <div class="flex items-center mb-2 border-b border-slate-800 pb-1.5 min-w-[750px]">
+          <div class="w-52 shrink-0 text-xs font-bold text-slate-400 uppercase tracking-wider pl-2">Track / Piano Keyboard</div>
+          <div class="flex-1 grid grid-cols-16 gap-1 text-center" id="step-column-headers"></div>
+        </div>
+
+        <!-- Horizontal Piano Roll Track Rows Container -->
+        <div id="piano-roll-grid" class="space-y-3 min-w-[750px]"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* =========================================================================
+       1. REFINED WEB AUDIO SYNTHESIS ENGINE
+       ========================================================================= */
+    class AudioEngine {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.masterVolume = 0.8;
+        this.initialized = false;
+        
+        // Note frequency dictionary (3 Octaves)
+        this.notes = {
+          'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00, 'A2': 110.00, 'B2': 123.47,
+          'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
+          'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
+          'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
+          'C6': 1046.50
+        };
+      }
+
+      init() {
+        if (this.initialized) return;
+        try {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+          this.masterGain = this.ctx.createGain();
+          this.masterGain.gain.value = this.masterVolume;
+          this.masterGain.connect(this.ctx.destination);
+          this.initialized = true;
+        } catch (e) {
+          console.warn("AudioContext failed to initialize:", e);
+        }
+      }
+
+      setMasterVolume(val) {
+        this.masterVolume = Math.max(0, Math.min(1, val));
+        if (this.masterGain && this.ctx) {
+          this.masterGain.gain.setValueAtTime(this.masterVolume, this.ctx.currentTime);
+        }
+      }
+
+      resume() {
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      // REFINED VIBRAPHONE: Soft, warm bell chime with gentle attack and ~0.55s decay
+      playVibraphone(noteName = 'E5', volume = 0.8) {
+        if (!this.initialized) this.init();
+        this.resume();
+        
+        const freq = this.notes[noteName] || 659.25;
+        const now = this.ctx.currentTime;
+
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+
+        osc1.frequency.setValueAtTime(freq, now);
+        osc2.frequency.setValueAtTime(freq * 2.001, now); // Gentle octave harmonic
+
+        const overtoneGain = this.ctx.createGain();
+        overtoneGain.gain.value = 0.08;
+        osc2.connect(overtoneGain);
+        overtoneGain.connect(gain);
+
+        osc1.connect(gain);
+
+        const effectiveVol = volume * 0.32; // Gentle output level
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.linearRampToValueAtTime(effectiveVol, now + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+        gain.connect(this.masterGain);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.58);
+        osc2.stop(now + 0.58);
+      }
+
+      // Electric Bass Guitar Synth
+      playBass(noteName = 'E2', volume = 0.8) {
+        if (!this.initialized) this.init();
+        this.resume();
+
+        const freq = this.notes[noteName] || 82.41;
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const filter = this.ctx.createBiquadFilter();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(650, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + 0.35);
+
+        const effectiveVol = volume * 0.75;
+        gain.gain.setValueAtTime(0.001, now);
+        gain.gain.linearRampToValueAtTime(effectiveVol, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.75);
+      }
+
+      // Kick Drum
+      playKick(volume = 0.9) {
+        if (!this.initialized) this.init();
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(130, now);
+        osc.frequency.exponentialRampToValueAtTime(32, now + 0.12);
+
+        gain.gain.setValueAtTime(volume * 0.9, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(now);
+        osc.stop(now + 0.4);
+      }
+
+      // Snare Drum
+      playSnare(volume = 0.8) {
+        if (!this.initialized) this.init();
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const bufferSize = this.ctx.sampleRate * 0.18;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 1000;
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(volume * 0.65, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+
+        noise.connect(filter);
+        filter.connect(noiseGain);
+        noiseGain.connect(this.masterGain);
+
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(170, now);
+        osc.frequency.exponentialRampToValueAtTime(50, now + 0.09);
+
+        oscGain.gain.setValueAtTime(volume * 0.55, now);
+        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.masterGain);
+
+        noise.start(now);
+        osc.start(now);
+        noise.stop(now + 0.2);
+        osc.stop(now + 0.2);
+      }
+
+      // Closed Hi-Hat
+      playHiHat(volume = 0.7) {
+        if (!this.initialized) this.init();
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const bufferSize = this.ctx.sampleRate * 0.04;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'highpass';
+        filter.frequency.value = 6500;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(volume * 0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        noise.start(now);
+        noise.stop(now + 0.05);
+      }
+
+      // Crash Cymbal
+      playCrash(volume = 0.8) {
+        if (!this.initialized) this.init();
+        this.resume();
+        const now = this.ctx.currentTime;
+
+        const bufferSize = this.ctx.sampleRate * 1.2;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 4500;
+        filter.Q.value = 1.2;
+
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(volume * 0.65, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+
+        noise.start(now);
+        noise.stop(now + 1.25);
+      }
+    }
+
+    const audio = new AudioEngine();
+
+    /* =========================================================================
+       2. THREE.JS 3D SCENE & ADAPTIVE VIEWPORT CENTERING
+       ========================================================================= */
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0a0d14);
+    scene.fog = new THREE.FogExp2(0x0a0d14, 0.022);
+
+    const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 7, 16);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
+
+    const OrbitControlsClass = THREE.OrbitControls || window.OrbitControls;
+    const controls = new OrbitControlsClass(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 + 0.1;
+    controls.minDistance = 6;
+    controls.maxDistance = 35;
+    controls.target.set(0, 3, 0);
+
+    // Adaptive Viewport Auto-Centering
+    function updateViewportCenter() {
+      if (!renderer || !camera || !controls) return;
+
+      const sidebar = document.getElementById('sidebar');
+      const pianoRollPanel = document.getElementById('piano-roll-panel');
+
+      const totalW = container.clientWidth;
+      const totalH = container.clientHeight;
+
+      const sidebarOpen = sidebar && !sidebar.classList.contains('translate-x-full') && !sidebar.classList.contains('opacity-0');
+      const rollOpen = pianoRollPanel && !pianoRollPanel.classList.contains('translate-y-[calc(100%-2.8rem)]');
+
+      const rightOffset = sidebarOpen ? 320 : 0;
+      const bottomOffset = rollOpen ? (totalH * 0.42) : 50;
+      const topOffset = 60;
+
+      const targetX = -(rightOffset / totalW) * 2.8;
+      const targetY = 3.0 + (bottomOffset / totalH) * 1.8 - (topOffset / totalH) * 0.8;
+
+      controls.target.set(targetX, targetY, 0);
+    }
+
+    // Steampunk Materials
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xc8963e, roughness: 0.3, metalness: 0.85 });
+    const darkSteelMat = new THREE.MeshStandardMaterial({ color: 0x22252a, roughness: 0.5, metalness: 0.7 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, roughness: 0.1, metalness: 0.95 });
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.7, metalness: 0.1 });
+    const copperMat = new THREE.MeshStandardMaterial({ color: 0xb87333, roughness: 0.35, metalness: 0.8 });
+    const glowingAmberMat = new THREE.MeshStandardMaterial({ color: 0xfabb15, emissive: 0xeab308, emissiveIntensity: 0.8, roughness: 0.2 });
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xfff3e0, 0.75);
+    scene.add(ambientLight);
+
+    const mainSpot = new THREE.SpotLight(0xffe8bd, 2.5);
+    mainSpot.position.set(10, 20, 15);
+    mainSpot.castShadow = true;
+    mainSpot.shadow.mapSize.width = 2048;
+    mainSpot.shadow.mapSize.height = 2048;
+    mainSpot.shadow.bias = -0.0001;
+    scene.add(mainSpot);
+
+    const fillLight = new THREE.PointLight(0x38bdf8, 1.2, 30);
+    fillLight.position.set(-12, 8, -5);
+    scene.add(fillLight);
+
+    const warmLight = new THREE.PointLight(0xf59e0b, 1.5, 25);
+    warmLight.position.set(8, 4, 6);
+    scene.add(warmLight);
+
+    // Machine Group
+    const machineGroup = new THREE.Group();
+    scene.add(machineGroup);
+
+    let mainWheelGroup = new THREE.Group();
+    let gear1Group = new THREE.Group();
+    let gear2Group = new THREE.Group();
+    const activeModuleMeshes = new Map();
+    const activeMarbles = [];
+
+    function buildBaseMachine() {
+      const baseGeo = new THREE.BoxGeometry(10, 0.4, 8);
+      const baseMesh = new THREE.Mesh(baseGeo, darkSteelMat);
+      baseMesh.position.y = -0.2;
+      baseMesh.receiveShadow = true;
+      machineGroup.add(baseMesh);
+
+      const pillarGeo = new THREE.CylinderGeometry(0.25, 0.3, 6, 16);
+      [[-4.5, -3.5], [4.5, -3.5], [-4.5, 3.5], [4.5, 3.5]].forEach(([x, z]) => {
+        const pillar = new THREE.Mesh(pillarGeo, brassMat);
+        pillar.position.set(x, 3, z);
+        pillar.castShadow = true;
+        machineGroup.add(pillar);
+      });
+
+      const beamGeo = new THREE.BoxGeometry(9.5, 0.25, 0.4);
+      const topBeam1 = new THREE.Mesh(beamGeo, brassMat);
+      topBeam1.position.set(0, 6, -3.5);
+      machineGroup.add(topBeam1);
+      const topBeam2 = topBeam1.clone();
+      topBeam2.position.z = 3.5;
+      machineGroup.add(topBeam2);
+
+      // Main Programming Wheel
+      const wheelRadius = 2.8;
+      const wheelWidth = 3.2;
+      const wheelGeo = new THREE.CylinderGeometry(wheelRadius, wheelRadius, wheelWidth, 32);
+      wheelGeo.rotateX(Math.PI / 2);
+      
+      const wheelMesh = new THREE.Mesh(wheelGeo, woodMat);
+      wheelMesh.castShadow = true;
+      mainWheelGroup.add(wheelMesh);
+
+      const rimGeo = new THREE.TorusGeometry(wheelRadius + 0.05, 0.08, 16, 32);
+      const rim1 = new THREE.Mesh(rimGeo, brassMat);
+      rim1.position.z = -wheelWidth / 2;
+      mainWheelGroup.add(rim1);
+      const rim2 = rim1.clone();
+      rim2.position.z = wheelWidth / 2;
+      mainWheelGroup.add(rim2);
+
+      // Raised Pins / Pegs
+      const pegGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.3, 8);
+      pegGeo.rotateX(Math.PI / 2);
+      for (let i = 0; i < 32; i++) {
+        const angle = (i / 32) * Math.PI * 2;
+        for (let row = -1.2; row <= 1.2; row += 0.6) {
+          if (Math.random() > 0.4) {
+            const peg = new THREE.Mesh(pegGeo, chromeMat);
+            peg.position.set(Math.cos(angle) * (wheelRadius + 0.12), Math.sin(angle) * (wheelRadius + 0.12), row);
+            peg.rotation.z = angle;
+            mainWheelGroup.add(peg);
+          }
+        }
+      }
+
+      mainWheelGroup.position.set(0, 3.5, 0);
+      machineGroup.add(mainWheelGroup);
+
+      // Drive Gears
+      const gearGeo1 = new THREE.CylinderGeometry(1.2, 1.2, 0.2, 24);
+      gearGeo1.rotateX(Math.PI / 2);
+      gear1Group.add(new THREE.Mesh(gearGeo1, brassMat));
+      gear1Group.position.set(-3.8, 3.5, 0);
+      machineGroup.add(gear1Group);
+
+      const gearGeo2 = new THREE.CylinderGeometry(0.7, 0.7, 0.2, 16);
+      gearGeo2.rotateX(Math.PI / 2);
+      gear2Group.add(new THREE.Mesh(gearGeo2, copperMat));
+      gear2Group.position.set(-3.8, 1.8, 0);
+      machineGroup.add(gear2Group);
+
+      // Hopper
+      const hopperGeo = new THREE.ConeGeometry(2.0, 1.8, 16, 1, true);
+      hopperGeo.rotateX(Math.PI);
+      const hopper = new THREE.Mesh(hopperGeo, brassMat);
+      hopper.position.set(0, 7.5, 0);
+      machineGroup.add(hopper);
+
+      // Catch Basin
+      const basinGeo = new THREE.BoxGeometry(7, 0.4, 5);
+      const basin = new THREE.Mesh(basinGeo, darkSteelMat);
+      basin.position.set(0, 0.3, 0);
+      machineGroup.add(basin);
+    }
+
+    buildBaseMachine();
+
+    /* =========================================================================
+       3. DETAILED 3D ELECTRIC BASS GUITAR & MODULE BUILDERS
+       ========================================================================= */
+    function createBassGuitarMesh() {
+      const bassGroup = new THREE.Group();
+      const bodyGroup = new THREE.Group();
+
+      // 1. Contoured Bass Body
+      const mainBody = new THREE.Mesh(new THREE.BoxGeometry(1.1, 2.0, 0.22), woodMat);
+      mainBody.castShadow = true;
+      bodyGroup.add(mainBody);
+
+      // Upper Horn Cutaway
+      const upperHorn = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.9, 16), woodMat);
+      upperHorn.position.set(-0.5, 0.7, 0);
+      upperHorn.rotation.z = 0.28;
+      bodyGroup.add(upperHorn);
+
+      // Lower Horn Cutaway
+      const lowerHorn = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.25, 0.7, 16), woodMat);
+      lowerHorn.position.set(0.5, 0.6, 0);
+      lowerHorn.rotation.z = -0.28;
+      bodyGroup.add(lowerHorn);
+
+      // Pickguard Plate
+      const pickguardMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3 });
+      const pickguard = new THREE.Mesh(new THREE.BoxGeometry(0.75, 1.1, 0.03), pickguardMat);
+      pickguard.position.set(-0.1, 0.1, 0.12);
+      bodyGroup.add(pickguard);
+
+      // Split-Coil Pickups
+      const pickupMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.2 });
+      const pu1 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.08), pickupMat);
+      pu1.position.set(-0.12, 0.2, 0.15);
+      bodyGroup.add(pu1);
+      const pu2 = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.14, 0.08), pickupMat);
+      pu2.position.set(0.1, 0.05, 0.15);
+      bodyGroup.add(pu2);
+
+      // Chrome Bridge
+      const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.28, 0.09), chromeMat);
+      bridge.position.set(0, -0.65, 0.14);
+      bodyGroup.add(bridge);
+
+      // Control Knobs
+      for (let k = 0; k < 3; k++) {
+        const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.08, 12), chromeMat);
+        knob.position.set(0.28, -0.35 - k * 0.18, 0.14);
+        knob.rotation.x = Math.PI / 2;
+        bodyGroup.add(knob);
+      }
+
+      // 2. Neck & Fretboard
+      const mapleMat = new THREE.MeshStandardMaterial({ color: 0xe2b274, roughness: 0.5 });
+      const rosewoodMat = new THREE.MeshStandardMaterial({ color: 0x3b2314, roughness: 0.6 });
+
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, 2.8, 16), mapleMat);
+      neck.position.set(0, 2.1, 0.02);
+      bodyGroup.add(neck);
+
+      const fretboard = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 0.04), rosewoodMat);
+      fretboard.position.set(0, 2.0, 0.1);
+      bodyGroup.add(fretboard);
+
+      // Fret Markers (Dots)
+      const dotGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.01, 8);
+      dotGeo.rotateX(Math.PI / 2);
+      [1.1, 1.6, 2.1, 2.6].forEach(yPos => {
+        const dot = new THREE.Mesh(dotGeo, chromeMat);
+        dot.position.set(0, yPos, 0.125);
+        bodyGroup.add(dot);
+      });
+
+      // 3. Headstock & Tuning Pegs
+      const headstock = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 0.1), woodMat);
+      headstock.position.set(0.04, 3.7, 0.05);
+      headstock.rotation.z = -0.08;
+      bodyGroup.add(headstock);
+
+      for (let p = 0; p < 4; p++) {
+        const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.25, 8), chromeMat);
+        peg.rotation.z = Math.PI / 2;
+        peg.position.set(p % 2 === 0 ? -0.2 : 0.24, 3.45 + p * 0.15, 0.05);
+        bodyGroup.add(peg);
+
+        const key = new THREE.Mesh(new THREE.CircleGeometry(0.065, 12), chromeMat);
+        key.position.copy(peg.position).add(new THREE.Vector3(p % 2 === 0 ? -0.08 : 0.08, 0, 0));
+        bodyGroup.add(key);
+      }
+
+      // 4 Steel Strings
+      for (let s = 0; s < 4; s++) {
+        const xPos = (s - 1.5) * 0.045;
+        const stringMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 4.2), chromeMat);
+        stringMesh.position.set(xPos, 1.5, 0.13);
+        bodyGroup.add(stringMesh);
+      }
+
+      bodyGroup.rotation.z = -Math.PI / 7;
+      bodyGroup.rotation.y = Math.PI / 9;
+      bodyGroup.position.set(0, 0.6, 0);
+      bassGroup.add(bodyGroup);
+
+      // Mechanical Plucker Solenoid Mount
+      const mountFrame = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.2, 0.8), brassMat);
+      mountFrame.position.set(0, 2.0, 0.35);
+      bassGroup.add(mountFrame);
+
+      const keyMeshes = [];
+      for (let m = 0; m < 6; m++) {
+        const plucker = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.3, 0.12), copperMat);
+        plucker.position.set((m - 2.5) * 0.18, 1.85, 0.35);
+        bassGroup.add(plucker);
+        keyMeshes.push(plucker);
+      }
+
+      bassGroup.userData = { type: 'bass', keyMeshes };
+      return bassGroup;
+    }
+
+    function createModuleMesh(type, index) {
+      const sockets = [
+        { x: -5.5, y: 1.2, z: 1.5, rotY: Math.PI / 6 },
+        { x: 5.5, y: 1.2, z: 1.5, rotY: -Math.PI / 6 },
+        { x: -5.5, y: 1.2, z: -1.5, rotY: Math.PI / 3 },
+        { x: 5.5, y: 1.2, z: -1.5, rotY: -Math.PI / 3 },
+        { x: 0, y: 1.2, z: 4.8, rotY: 0 },
+        { x: 0, y: 1.2, z: -4.8, rotY: Math.PI },
+        { x: -3.5, y: 1.2, z: 4.0, rotY: Math.PI / 8 },
+        { x: 3.5, y: 1.2, z: 4.0, rotY: -Math.PI / 8 }
+      ];
+      const socket = sockets[index % sockets.length];
+
+      if (type === 'bass') {
+        const bassModule = createBassGuitarMesh();
+        bassModule.position.set(socket.x, socket.y, socket.z);
+        bassModule.rotation.y = socket.rotY;
+        return bassModule;
+      }
+
+      const moduleGroup = new THREE.Group();
+      moduleGroup.position.set(socket.x, socket.y, socket.z);
+      moduleGroup.rotation.y = socket.rotY;
+
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 2.5), brassMat);
+      tube.rotation.z = Math.PI / 2;
+      tube.position.set(-socket.x * 0.2, 0, -socket.z * 0.2);
+      moduleGroup.add(tube);
+
+      if (type === 'vibraphone') {
+        const barCount = 10;
+        const keyMeshes = [];
+        for (let i = 0; i < barCount; i++) {
+          const barMesh = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.1, 1.4 - i * 0.06), brassMat);
+          const xPos = (i - barCount / 2) * 0.28;
+          barMesh.position.set(xPos, 0.8, 0);
+          barMesh.castShadow = true;
+          moduleGroup.add(barMesh);
+
+          const dropTube = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 1.2, 12, 1, true), darkSteelMat);
+          dropTube.position.set(xPos, 2.0, 0);
+          moduleGroup.add(dropTube);
+
+          keyMeshes.push(barMesh);
+        }
+        moduleGroup.userData = { type, keyMeshes };
+
+      } else if (type === 'kick') {
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 1.0, 24), woodMat);
+        drum.geometry.rotateX(Math.PI / 2);
+        drum.position.y = 0.9;
+        moduleGroup.add(drum);
+
+        const padMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.3), glowingAmberMat);
+        padMesh.position.set(0, 0.9, 0.6);
+        moduleGroup.add(padMesh);
+
+        moduleGroup.userData = { type, keyMeshes: [padMesh] };
+
+      } else if (type === 'snare') {
+        const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.7, 0.5, 20), darkSteelMat);
+        drum.position.y = 1.0;
+        moduleGroup.add(drum);
+
+        const meshPad = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.65, 0.05), chromeMat);
+        meshPad.position.y = 1.26;
+        moduleGroup.add(meshPad);
+
+        moduleGroup.userData = { type, keyMeshes: [meshPad] };
+
+      } else if (type === 'hihat') {
+        const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.2), chromeMat);
+        stand.position.y = 1.1;
+        moduleGroup.add(stand);
+
+        const cymbalGeo = new THREE.ConeGeometry(0.6, 0.15, 20);
+        const cymbal1 = new THREE.Mesh(cymbalGeo, brassMat);
+        cymbal1.position.y = 1.8;
+        moduleGroup.add(cymbal1);
+
+        moduleGroup.userData = { type, keyMeshes: [cymbal1] };
+
+      } else if (type === 'crash') {
+        const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 2.6), chromeMat);
+        stand.position.y = 1.3;
+        moduleGroup.add(stand);
+
+        const cymbal = new THREE.Mesh(new THREE.ConeGeometry(0.9, 0.18, 24), brassMat);
+        cymbal.position.set(0, 2.5, 0);
+        cymbal.rotation.z = 0.15;
+        moduleGroup.add(cymbal);
+
+        moduleGroup.userData = { type, keyMeshes: [cymbal] };
+      }
+
+      return moduleGroup;
+    }
+
+    function triggerMarbleDrop(trackId, noteIndex = 0) {
+      const moduleGroup = activeModuleMeshes.get(trackId);
+      if (!moduleGroup) return;
+
+      const keyMeshes = moduleGroup.userData.keyMeshes;
+      if (!keyMeshes || keyMeshes.length === 0) return;
+
+      const targetKey = keyMeshes[Math.min(noteIndex, keyMeshes.length - 1)];
+      const targetWorldPos = new THREE.Vector3();
+      targetKey.getWorldPosition(targetWorldPos);
+
+      const marble = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 16), chromeMat);
+      marble.position.copy(targetWorldPos.clone().add(new THREE.Vector3(0, 1.6, 0)));
+      scene.add(marble);
+
+      activeMarbles.push({
+        mesh: marble,
+        targetY: targetWorldPos.y + 0.1,
+        targetKey: targetKey,
+        velocity: 0,
+        state: 'falling'
+      });
+    }
+
+    function updateMarbles(delta) {
+      for (let i = activeMarbles.length - 1; i >= 0; i--) {
+        const item = activeMarbles[i];
+        if (item.state === 'falling') {
+          item.velocity += delta * 18.0;
+          item.mesh.position.y -= item.velocity * delta;
+
+          if (item.mesh.position.y <= item.targetY) {
+            item.mesh.position.y = item.targetY;
+            item.state = 'bounce';
+            item.velocity = -2.5;
+
+            if (item.targetKey) {
+              const origY = item.targetKey.position.y;
+              item.targetKey.position.y -= 0.08;
+              setTimeout(() => { if (item.targetKey) item.targetKey.position.y = origY; }, 100);
+            }
+          }
+        } else if (item.state === 'bounce') {
+          item.mesh.position.y -= item.velocity * delta;
+          item.velocity += delta * 15.0;
+
+          if (item.mesh.position.y < item.targetY - 0.4) {
+            scene.remove(item.mesh);
+            item.mesh.geometry.dispose();
+            activeMarbles.splice(i, 1);
+          }
+        }
+      }
+    }
+
+    /* =========================================================================
+       4. SEQUENCER STATE & TRACK DATA
+       ========================================================================= */
+    const MAX_TRACKS = 8;
+    let isPlaying = false;
+    let currentStep = 0;
+    let bpm = 115;
+    let stepTimer = null;
+
+    let tracks = [];
+
+    const vibraphoneScale = ['C4', 'D4', 'E4', 'G4', 'A4', 'C5', 'D5', 'E5', 'G5', 'A5'];
+    const bassScale = ['C2', 'D2', 'E2', 'G2', 'A2', 'C3'];
+
+    function createTrack(type) {
+      if (tracks.length >= MAX_TRACKS) return;
+
+      const id = 'track_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+      let name = 'Instrument';
+      let isMelodic = false;
+      let defaultScale = [];
+
+      switch (type) {
+        case 'kick': name = 'Kick Drum'; break;
+        case 'snare': name = 'Snare Drum'; break;
+        case 'hihat': name = 'Closed Hi-Hat'; break;
+        case 'crash': name = 'Crash Cymbal'; break;
+        case 'vibraphone': 
+          name = 'Vibraphone'; 
+          isMelodic = true; 
+          defaultScale = vibraphoneScale;
+          break;
+        case 'bass': 
+          name = 'Electric Bass'; 
+          isMelodic = true; 
+          defaultScale = bassScale;
+          break;
+      }
+
+      const steps = new Array(16).fill(isMelodic ? null : false);
+
+      const track = {
+        id,
+        type,
+        name,
+        isMelodic,
+        defaultScale,
+        steps,
+        volume: 0.8,
+        mute: false,
+        collapsed: false
+      };
+
+      tracks.push(track);
+
+      const moduleMesh = createModuleMesh(type, tracks.length - 1);
+      machineGroup.add(moduleMesh);
+      activeModuleMeshes.set(id, moduleMesh);
+
+      renderSidebarTracks();
+      renderPianoRollGrid();
+    }
+
+    function removeTrack(id) {
+      const idx = tracks.findIndex(t => t.id === id);
+      if (idx !== -1) tracks.splice(idx, 1);
+
+      const mesh = activeModuleMeshes.get(id);
+      if (mesh) {
+        machineGroup.remove(mesh);
+        activeModuleMeshes.delete(id);
+      }
+
+      // Re-index remaining module positions
+      tracks.forEach((t, i) => {
+        const m = activeModuleMeshes.get(t.id);
+        if (m) {
+          const sockets = [
+            { x: -5.5, y: 1.2, z: 1.5, rotY: Math.PI / 6 },
+            { x: 5.5, y: 1.2, z: 1.5, rotY: -Math.PI / 6 },
+            { x: -5.5, y: 1.2, z: -1.5, rotY: Math.PI / 3 },
+            { x: 5.5, y: 1.2, z: -1.5, rotY: -Math.PI / 3 },
+            { x: 0, y: 1.2, z: 4.8, rotY: 0 },
+            { x: 0, y: 1.2, z: -4.8, rotY: Math.PI },
+            { x: -3.5, y: 1.2, z: 4.0, rotY: Math.PI / 8 },
+            { x: 3.5, y: 1.2, z: 4.0, rotY: -Math.PI / 8 }
+          ];
+          const sock = sockets[i % sockets.length];
+          m.position.set(sock.x, sock.y, sock.z);
+          m.rotation.y = sock.rotY;
+        }
+      });
+
+      renderSidebarTracks();
+      renderPianoRollGrid();
+    }
+
+    function loadWintergatanDemo() {
+      // Clear existing
+      tracks.forEach(t => {
+        const mesh = activeModuleMeshes.get(t.id);
+        if (mesh) machineGroup.remove(mesh);
+      });
+      tracks = [];
+      activeModuleMeshes.clear();
+
+      // Populate 5 Default Instruments
+      createTrack('vibraphone');
+      createTrack('bass');
+      createTrack('kick');
+      createTrack('snare');
+      createTrack('hihat');
+
+      // Vibraphone Pattern
+      const vibe = tracks[0];
+      vibe.steps[0] = 'E5';
+      vibe.steps[2] = 'G5';
+      vibe.steps[4] = 'B4';
+      vibe.steps[6] = 'E5';
+      vibe.steps[8] = 'G5';
+      vibe.steps[10] = 'A5';
+      vibe.steps[12] = 'G5';
+      vibe.steps[14] = 'E5';
+
+      // Bass Guitar Pattern
+      const bass = tracks[1];
+      bass.steps[0] = 'E2';
+      bass.steps[6] = 'G2';
+      bass.steps[8] = 'E2';
+      bass.steps[12] = 'A2';
+
+      // Kick Pattern
+      const kick = tracks[2];
+      [0, 6, 8, 12].forEach(s => kick.steps[s] = true);
+
+      // Snare Pattern
+      const snare = tracks[3];
+      [4, 12].forEach(s => snare.steps[s] = true);
+
+      // Hi-Hat Pattern
+      const hihat = tracks[4];
+      [0, 2, 4, 6, 8, 10, 12, 14].forEach(s => hihat.steps[s] = true);
+
+      renderSidebarTracks();
+      renderPianoRollGrid();
+    }
+
+    function playStep() {
+      // Highlight playhead step columns across piano roll
+      document.querySelectorAll('.step-cell').forEach(cell => {
+        const step = parseInt(cell.dataset.step);
+        if (step === currentStep) {
+          cell.classList.add('playhead-active');
+        } else {
+          cell.classList.remove('playhead-active');
+        }
+      });
+
+      // Play audio & marble animations
+      tracks.forEach(track => {
+        if (track.mute) return;
+
+        const val = track.steps[currentStep];
+        if (!val) return;
+
+        if (track.isMelodic) {
+          if (track.type === 'vibraphone') {
+            audio.playVibraphone(val, track.volume);
+            const noteIdx = track.defaultScale.indexOf(val);
+            triggerMarbleDrop(track.id, noteIdx !== -1 ? noteIdx : 0);
+          } else if (track.type === 'bass') {
+            audio.playBass(val, track.volume);
+            const noteIdx = track.defaultScale.indexOf(val);
+            triggerMarbleDrop(track.id, noteIdx !== -1 ? noteIdx : 0);
+          }
+        } else {
+          switch (track.type) {
+            case 'kick': audio.playKick(track.volume); break;
+            case 'snare': audio.playSnare(track.volume); break;
+            case 'hihat': audio.playHiHat(track.volume); break;
+            case 'crash': audio.playCrash(track.volume); break;
+          }
+          triggerMarbleDrop(track.id, 0);
+        }
+      });
+
+      currentStep = (currentStep + 1) % 16;
+    }
+
+    function startSequencer() {
+      audio.init();
+      audio.resume();
+      isPlaying = true;
+      
+      document.getElementById('play-icon').className = 'ph-fill ph-pause text-lg';
+      document.getElementById('play-text').textContent = 'PAUSE';
+
+      const stepInterval = (60 / bpm / 4) * 1000;
+      stepTimer = setInterval(playStep, stepInterval);
+    }
+
+    function stopSequencer() {
+      isPlaying = false;
+      if (stepTimer) clearInterval(stepTimer);
+      stepTimer = null;
+      currentStep = 0;
+
+      document.getElementById('play-icon').className = 'ph-fill ph-play text-lg';
+      document.getElementById('play-text').textContent = 'PLAY';
+
+      document.querySelectorAll('.step-cell').forEach(c => c.classList.remove('playhead-active'));
+    }
+
+    /* =========================================================================
+       5. FL STUDIO HORIZONTAL PIANO ROLL & SIDEBAR RENDERERS
+       ========================================================================= */
+    const activeTracksContainer = document.getElementById('active-tracks-list');
+    const pianoRollGrid = document.getElementById('piano-roll-grid');
+    const stepColumnHeaders = document.getElementById('step-column-headers');
+
+    // Render 1..16 Step headers grouped in 4-beat sections
+    function renderStepHeaders() {
+      stepColumnHeaders.innerHTML = '';
+      for (let i = 0; i < 16; i++) {
+        const headerCell = document.createElement('div');
+        const beatGroup = Math.floor(i / 4) % 2 === 0;
+        headerCell.className = `text-[11px] font-bold py-1 rounded ${
+          beatGroup ? 'text-amber-400 bg-slate-900/90 border border-amber-500/20' : 'text-slate-400 bg-slate-900/40'
+        }`;
+        headerCell.textContent = i + 1;
+        stepColumnHeaders.appendChild(headerCell);
+      }
+    }
+    renderStepHeaders();
+
+    function getTrackIcon(type) {
+      switch (type) {
+        case 'kick': return 'ph-circle';
+        case 'snare': return 'ph-square';
+        case 'hihat': return 'ph-triangle';
+        case 'crash': return 'ph-star';
+        case 'vibraphone': return 'ph-music-notes';
+        case 'bass': return 'ph-wave-sine';
+        default: return 'ph-gear';
+      }
+    }
+
+    function renderSidebarTracks() {
+      document.getElementById('module-count').textContent = `${tracks.length} / ${MAX_TRACKS}`;
+      activeTracksContainer.innerHTML = '';
+
+      tracks.forEach(track => {
+        const card = document.createElement('div');
+        card.className = 'glass-btn rounded-xl p-3 flex flex-col space-y-2 border-slate-700/50';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2.5 overflow-hidden">
+              <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+                <i class="ph-bold ${getTrackIcon(track.type)} text-sm"></i>
+              </div>
+              <div class="truncate">
+                <div class="text-xs font-semibold text-slate-200 truncate">${track.name}</div>
+                <div class="text-[10px] text-slate-400 uppercase">${track.type}</div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-1 shrink-0">
+              <button class="mute-btn p-1 text-slate-400 hover:text-amber-400 ${track.mute ? 'text-rose-400' : ''}" data-id="${track.id}">
+                <i class="ph-bold ${track.mute ? 'ph-speaker-slash' : 'ph-speaker-high'} text-sm"></i>
+              </button>
+              <button class="delete-btn p-1 text-slate-400 hover:text-rose-400" data-id="${track.id}">
+                <i class="ph-bold ph-trash text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Individual Track Volume Control -->
+          <div class="flex items-center space-x-2 pt-1 border-t border-slate-800">
+            <i class="ph-bold ph-speaker-low text-xs text-slate-400"></i>
+            <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}" class="track-vol-slider flex-1 h-1.5 cursor-pointer" data-id="${track.id}">
+            <span class="font-mono text-[10px] font-bold text-amber-400 w-7 text-right">${Math.round(track.volume * 100)}%</span>
+          </div>
+        `;
+        activeTracksContainer.appendChild(card);
+      });
+
+      // Bind Sidebar Track Volume & Control Handlers
+      document.querySelectorAll('.track-vol-slider').forEach(s => {
+        s.addEventListener('input', (e) => {
+          const id = e.target.dataset.id;
+          const t = tracks.find(x => x.id === id);
+          if (t) {
+            t.volume = parseInt(e.target.value) / 100;
+            e.target.nextElementSibling.textContent = `${Math.round(t.volume * 100)}%`;
+            renderPianoRollGrid();
+          }
+        });
+      });
+
+      document.querySelectorAll('.mute-btn').forEach(b => {
+        b.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          const t = tracks.find(x => x.id === id);
+          if (t) {
+            t.mute = !t.mute;
+            renderSidebarTracks();
+            renderPianoRollGrid();
+          }
+        });
+      });
+
+      document.querySelectorAll('.delete-btn').forEach(b => {
+        b.addEventListener('click', (e) => removeTrack(e.currentTarget.dataset.id));
+      });
+    }
+
+    // Render True FL Studio 9 Horizontal Piano Roll
+    function renderPianoRollGrid() {
+      pianoRollGrid.innerHTML = '';
+
+      if (tracks.length === 0) {
+        pianoRollGrid.innerHTML = `
+          <div class="text-center py-8 text-slate-500 text-xs flex flex-col items-center space-y-2">
+            <i class="ph-bold ph-wrench text-2xl text-amber-500/40"></i>
+            <span>No modules attached. Use the sidebar to attach instruments!</span>
+          </div>
+        `;
+        return;
+      }
+
+      tracks.forEach(track => {
+        const trackContainer = document.createElement('div');
+        trackContainer.className = 'bg-slate-900/80 rounded-xl border border-slate-800 p-2 space-y-1.5';
+
+        // Count Active Notes
+        const activeCount = track.steps.filter(Boolean).length;
+
+        // Track Header Bar
+        const header = document.createElement('div');
+        header.className = 'flex items-center justify-between pb-1 border-b border-slate-800/80';
+        header.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <button class="collapse-toggle-btn text-slate-400 hover:text-amber-400 font-bold text-sm px-1" data-id="${track.id}">
+              <i class="ph-bold ${track.collapsed ? 'ph-caret-right' : 'ph-caret-down'}"></i>
+            </button>
+            <i class="ph-bold ${getTrackIcon(track.type)} text-amber-400 text-sm"></i>
+            <span class="text-xs font-bold text-slate-200 uppercase">${track.name}</span>
+            <span class="text-[10px] text-amber-400/80 font-mono font-semibold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">${activeCount} Notes</span>
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-1">
+              <span class="text-[10px] text-slate-400">Vol</span>
+              <input type="range" min="0" max="100" value="${Math.round(track.volume * 100)}" class="roll-vol-slider w-16 h-1 cursor-pointer" data-id="${track.id}">
+            </div>
+            <button class="roll-mute-btn text-xs text-slate-400 hover:text-amber-400 px-1" data-id="${track.id}">
+              <i class="ph-bold ${track.mute ? 'ph-speaker-slash text-rose-400' : 'ph-speaker-high'}"></i>
+            </button>
+          </div>
+        `;
+        trackContainer.appendChild(header);
+
+        // Body Grid (Hidden if track is collapsed)
+        if (!track.collapsed) {
+          if (!track.isMelodic) {
+            // Percussion 16-Step Trigger Row
+            const row = document.createElement('div');
+            row.className = 'flex items-center space-x-2 pt-1';
+
+            const label = document.createElement('div');
+            label.className = 'w-52 shrink-0 text-xs font-semibold text-slate-400 pl-2';
+            label.textContent = 'Hit Timing';
+            row.appendChild(label);
+
+            const stepsContainer = document.createElement('div');
+            stepsContainer.className = 'flex-1 grid grid-cols-16 gap-1';
+
+            for (let s = 0; s < 16; s++) {
+              const cell = document.createElement('button');
+              const isAct = Boolean(track.steps[s]);
+              const beatGroup = Math.floor(s / 4) % 2 === 0;
+
+              cell.className = `step-cell h-7 rounded-md border text-[10px] flex items-center justify-center transition-all ${
+                isAct 
+                  ? 'fl-note-active' 
+                  : beatGroup ? 'bg-slate-800/90 border-slate-700/60' : 'bg-slate-900/80 border-slate-800/80'
+              }`;
+              cell.dataset.trackId = track.id;
+              cell.dataset.step = s;
+
+              cell.addEventListener('click', () => {
+                track.steps[s] = !track.steps[s];
+                renderPianoRollGrid();
+              });
+              stepsContainer.appendChild(cell);
+            }
+
+            row.appendChild(stepsContainer);
+            trackContainer.appendChild(row);
+
+          } else {
+            // Melodic Instrument FL Studio Vertical Keyboard Matrix
+            const pitches = [...track.defaultScale].reverse();
+
+            pitches.forEach(noteName => {
+              const pitchRow = document.createElement('div');
+              pitchRow.className = 'flex items-center space-x-2';
+
+              // Vertical Piano Key Button on Left Y-Axis
+              const isBlackKey = noteName.includes('#');
+              const pianoKey = document.createElement('button');
+              pianoKey.className = `w-52 shrink-0 h-6 px-2.5 rounded text-left font-mono text-[11px] font-bold flex items-center justify-between shadow-sm transition-all ${
+                isBlackKey ? 'piano-key-black' : 'piano-key-white'
+              }`;
+              pianoKey.innerHTML = `
+                <span>${noteName}</span>
+                <i class="ph-bold ph-speaker-high text-[10px] opacity-60"></i>
+              `;
+              
+              // Click Piano Key to Preview Audio
+              pianoKey.addEventListener('click', () => {
+                if (track.type === 'vibraphone') audio.playVibraphone(noteName, track.volume);
+                else if (track.type === 'bass') audio.playBass(noteName, track.volume);
+              });
+
+              pitchRow.appendChild(pianoKey);
+
+              // 16 Step Columns for this Pitch
+              const stepsContainer = document.createElement('div');
+              stepsContainer.className = 'flex-1 grid grid-cols-16 gap-1';
+
+              for (let s = 0; s < 16; s++) {
+                const cell = document.createElement('button');
+                const isAct = track.steps[s] === noteName;
+                const beatGroup = Math.floor(s / 4) % 2 === 0;
+
+                cell.className = `step-cell h-6 rounded border text-[9px] font-mono font-bold flex items-center justify-center transition-all ${
+                  isAct 
+                    ? 'fl-note-active' 
+                    : beatGroup ? 'bg-slate-800/80 border-slate-700/50' : 'bg-slate-900/80 border-slate-800/70'
+                }`;
+                cell.dataset.trackId = track.id;
+                cell.dataset.step = s;
+
+                if (isAct) cell.textContent = noteName;
+
+                // Toggle note on grid click
+                cell.addEventListener('click', () => {
+                  if (track.steps[s] === noteName) {
+                    track.steps[s] = null;
+                  } else {
+                    track.steps[s] = noteName;
+                  }
+                  renderPianoRollGrid();
+                });
+
+                stepsContainer.appendChild(cell);
+              }
+
+              pitchRow.appendChild(stepsContainer);
+              trackContainer.appendChild(pitchRow);
+            });
+          }
+        }
+
+        pianoRollGrid.appendChild(trackContainer);
+      });
+
+      // Bind Piano Roll Collapse & Volume Handlers
+      document.querySelectorAll('.collapse-toggle-btn').forEach(b => {
+        b.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          const t = tracks.find(x => x.id === id);
+          if (t) {
+            t.collapsed = !t.collapsed;
+            renderPianoRollGrid();
+          }
+        });
+      });
+
+      document.querySelectorAll('.roll-vol-slider').forEach(s => {
+        s.addEventListener('input', (e) => {
+          const id = e.target.dataset.id;
+          const t = tracks.find(x => x.id === id);
+          if (t) {
+            t.volume = parseInt(e.target.value) / 100;
+            renderSidebarTracks();
+          }
+        });
+      });
+
+      document.querySelectorAll('.roll-mute-btn').forEach(b => {
+        b.addEventListener('click', (e) => {
+          const id = e.currentTarget.dataset.id;
+          const t = tracks.find(x => x.id === id);
+          if (t) {
+            t.mute = !t.mute;
+            renderSidebarTracks();
+            renderPianoRollGrid();
+          }
+        });
+      });
+    }
+
+    /* =========================================================================
+       6. EVENT BINDINGS & VIEWPORT LISTENERS
+       ========================================================================= */
+    document.getElementById('play-btn').addEventListener('click', () => {
+      if (isPlaying) stopSequencer();
+      else startSequencer();
+    });
+
+    document.getElementById('stop-btn').addEventListener('click', () => {
+      stopSequencer();
+    });
+
+    document.getElementById('master-vol-slider').addEventListener('input', (e) => {
+      const val = parseInt(e.target.value) / 100;
+      audio.setMasterVolume(val);
+      document.getElementById('master-vol-val').textContent = `${Math.round(val * 100)}%`;
+    });
+
+    document.getElementById('bpm-slider').addEventListener('input', (e) => {
+      bpm = parseInt(e.target.value);
+      document.getElementById('bpm-val').textContent = bpm;
+      if (isPlaying) {
+        stopSequencer();
+        startSequencer();
+      }
+    });
+
+    document.getElementById('add-track-btn').addEventListener('click', () => {
+      const type = document.getElementById('add-instrument-select').value;
+      createTrack(type);
+    });
+
+    document.getElementById('demo-btn').addEventListener('click', () => {
+      loadWintergatanDemo();
+    });
+
+    document.getElementById('clear-btn').addEventListener('click', () => {
+      tracks.forEach(t => t.steps.fill(t.isMelodic ? null : false));
+      renderPianoRollGrid();
+    });
+
+    document.getElementById('expand-all-btn').addEventListener('click', () => {
+      tracks.forEach(t => t.collapsed = false);
+      renderPianoRollGrid();
+    });
+
+    document.getElementById('collapse-all-btn').addEventListener('click', () => {
+      tracks.forEach(t => t.collapsed = true);
+      renderPianoRollGrid();
+    });
+
+    document.getElementById('reset-cam-btn').addEventListener('click', () => {
+      camera.position.set(0, 7, 16);
+      updateViewportCenter();
+    });
+
+    // Sidebar Drawer Toggle with Adaptive Viewport Re-Centering
+    const sidebar = document.getElementById('sidebar');
+    document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+      sidebar.classList.toggle('translate-x-full');
+      sidebar.classList.toggle('opacity-0');
+      setTimeout(updateViewportCenter, 310);
+    });
+
+    // Piano Roll Drawer Toggle with Adaptive Viewport Re-Centering
+    const pianoRollPanel = document.getElementById('piano-roll-panel');
+    const rollCaret = document.getElementById('roll-caret');
+    document.getElementById('toggle-roll-btn').addEventListener('click', () => {
+      pianoRollPanel.classList.toggle('translate-y-[calc(100%-2.8rem)]');
+      rollCaret.classList.toggle('ph-caret-up');
+      rollCaret.classList.toggle('ph-caret-down');
+      setTimeout(updateViewportCenter, 310);
+    });
+
+    /* =========================================================================
+       7. MAIN ANIMATION LOOP
+       ========================================================================= */
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const delta = clock.getDelta();
+
+      if (isPlaying) {
+        mainWheelGroup.rotation.z += delta * (bpm / 120) * 0.8;
+        gear1Group.rotation.z -= delta * (bpm / 120) * 1.6;
+        gear2Group.rotation.z += delta * (bpm / 120) * 2.2;
+      }
+
+      updateMarbles(delta);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Window Resize Handler with Viewport Auto-Centering
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      updateViewportCenter();
+    });
+
+    // App Startup Initialization
+    window.onload = () => {
+      loadWintergatanDemo();
+      updateViewportCenter();
+      animate();
+    };
+  </script>
+</body>
+</html>
